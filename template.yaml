@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  # =========================================================================================
+  # IAM ROLE, POLICY
+  # =========================================================================================
+  IamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: worldquant-brain-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - logs.amazonaws.com
+                - s3.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: '/'
+
+  IamPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: worldquant-brain-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: LogsAccess
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:DeleteLogGroup
+              - logs:CreateLogStream
+              - logs:DeleteLogStream
+              - logs:PutLogEvents
+              - logs:DeleteRetentionPolicy
+            Resource: arn:aws:logs:*:*:*:*:*
+          - Sid: LambdaAccess
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+              - lambda:GetFunctionConfiguration
+            Resource: arn:aws:lambda:*:*:*:*:*
+      Roles:
+        - !Ref IamRole
+
+  # =========================================================================================
+  # Logs
+  # =========================================================================================
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: WorldQuant-Brain-Log-Group
+
+  LogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref LogGroup
+
+  # =========================================================================================
+  # AWS LAMBDA FUNCTION
+  # ========================================================================================= 
+  StreamingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: WorldQuant-Brain-Lambda-Function
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      CodeUri: lambda/
+      MemorySize: 128
+      Timeout: 900
+      Role: !GetAtt IamRole.Arn
+      Environment:
+        Variables:
+          LOGGING_LEVEL: INFO
+          APP_NAME: !Sub '${Environment}-${AWS::StackName}-Streaming-Function'
+          APP_ENV: !Ref Environment
+          STREAM: !Ref DeliveryStream
+      Events:
+        DynamoDBTrigger:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt DynamoDBTable.StreamArn
+            BatchSize: 1000
+            StartingPosition: TRIM_HORIZON
+            MaximumRetryAttempts: 1
