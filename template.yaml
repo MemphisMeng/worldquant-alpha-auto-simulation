@@ -61,29 +61,170 @@ Resources:
       LogGroupName: !Ref LogGroup
 
   # =========================================================================================
-  # AWS LAMBDA FUNCTION
+  # AWS LAMBDA FUNCTIONS
   # ========================================================================================= 
-  StreamingFunction:
+  AuthFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: WorldQuant-Brain-Lambda-Function
+      FunctionName: WorldQuant-Brain-Auth-Function
       Handler: lambda_function.lambda_handler
       Runtime: python3.9
-      CodeUri: lambda/
+      CodeUri: authenticate/
       MemorySize: 128
       Timeout: 900
       Role: !GetAtt IamRole.Arn
       Environment:
         Variables:
           LOGGING_LEVEL: INFO
-          APP_NAME: !Sub '${Environment}-${AWS::StackName}-Streaming-Function'
-          APP_ENV: !Ref Environment
-          STREAM: !Ref DeliveryStream
+          QUEUE: !Ref MessageQueue
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: 
+          Fn::GetAtt: MessageDeadLetterQueue.Arn
+
+  SimulateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: WorldQuant-Brain-Simulate-Function
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      CodeUri: simulate/
+      MemorySize: 128
+      Timeout: 900
+      Role: !GetAtt IamRole.Arn
+      Environment:
+        Variables:
+          LOGGING_LEVEL: INFO
+          QUEUE: !Ref MessageQueue
       Events:
-        DynamoDBTrigger:
-          Type: DynamoDB
+        Event:
+          Type: SQS
           Properties:
-            Stream: !GetAtt DynamoDBTable.StreamArn
-            BatchSize: 1000
-            StartingPosition: TRIM_HORIZON
-            MaximumRetryAttempts: 1
+            Queue: !GetAtt MessageQueue.Arn
+            BatchSize: 10
+
+
+  # =========================================================================================
+  # AWS LAMBDA FUNCTIONS
+  # ========================================================================================= 
+  MessageQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: WorldQuant-Brain-Queue
+      VisibilityTimeout: 900
+      RedrivePolicy:
+        deadLetterTargetArn: 
+          Fn::GetAtt: MessageDeadLetterQueue.Arn
+        maxReceiveCount: 10
+  MessageDeadLetterQueue: 
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: WorldQuant-Brain-Dead-Letter-Queue
+      MessageRetentionPeriod: 1209600
+
+  # =========================================================================================
+  # AWS CLOUDWATCH ALARM
+  # =========================================================================================
+  AuthErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AuthFunction
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 300
+      Statistic: Sum
+      Threshold: 1
+      AlarmActions: 
+        - !GetAtt Topic.TopicArn
+  AuthDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AuthFunction
+      EvaluationPeriods: 1
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Maximum
+      Threshold: 750000
+      AlarmActions:
+        - !GetAtt Topic.TopicArn
+  AuthThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AuthFunction
+      EvaluationPeriods: 1
+      MetricName: Throttles
+      Namespace: AWS/Lambda
+      Period: 300
+      Statistic: Sum
+      Threshold: 1
+      AlarmActions:
+        - !GetAtt Topic.TopicArn
+
+  SimulateErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SimulateFunction
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 300
+      Statistic: Sum
+      Threshold: 1
+      AlarmActions: 
+        - !GetAtt Topic.TopicArn
+  SimulateDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SimulateFunction
+      EvaluationPeriods: 1
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Maximum
+      Threshold: 750000
+      AlarmActions:
+        - !GetAtt Topic.TopicArn
+  SimulateThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SimulateFunction
+      EvaluationPeriods: 1
+      MetricName: Throttles
+      Namespace: AWS/Lambda
+      Period: 300
+      Statistic: Sum
+      Threshold: 1
+      AlarmActions:
+        - !GetAtt Topic.TopicArn
+
+  # =========================================================================================
+  # AWS SNS Topic
+  # =========================================================================================
+  Topic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      FifoTopic: false
+      Subscription: 
+        - Endpoint: anzhemeng@gmail.com
+          Protocol: email
+      TopicName: WorldQuant-Brain-Topic
