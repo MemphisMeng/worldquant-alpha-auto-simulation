@@ -16,7 +16,7 @@ def main(event, environment):
         datafields.extend(
             get_datafields(cookies=cookies, searchScope=searchScope, dataset_id=dataset))
         
-    cookies_dict = requests.utils.dict_from_cookiejar(cookies)
+    cookies_dict = {'cookies': requests.utils.dict_from_cookiejar(cookies)}
     for field1, field2, group in itertools.product(datafields, datafields, ['subindustry', 'sector', 'industry']):
         alpha_expression = f'group_rank(({field1})/{field2}, {group})'
         message = {'expression': alpha_expression}
