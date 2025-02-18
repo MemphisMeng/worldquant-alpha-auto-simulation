@@ -1,7 +1,6 @@
 import logging, json, requests
-from requests import HTTPError
-from service.helper import delete_message
-from time import time
+from service.helper import delete_message, authenticate
+from time import time, sleep
 
 LOGGER = logging.getLogger(__name__)
 
@@ -55,14 +54,24 @@ def main(event, environment):
                     neutralization: {neutralization},
                     cookie: {cookies.values()[0]}
                 """)
+                retries = 0
                 simulation_response = requests.post(
                     url='https://api.worldquantbrain.com/simulations',
                     json=simulation_data,
                     cookies=cookies
                 )
-                #TODO: get reauthenticated if the cookies expire
+                while retries < 1 and simulation_response.status_code in [401, 439]:
+                    sleep(1)
+                    cookies = authenticate()
+                    simulation_response = requests.post(
+                        url='https://api.worldquantbrain.com/simulations',
+                        json=simulation_data,
+                        cookies=cookies
+                    )
+                    retries += 1
+                simulation_response.raise_for_status()
+                
                 simulation_progress_url = simulation_response.headers.get("Location")
-
                 while True:
                     simulation_progress_response = requests.get(simulation_progress_url, cookies=cookies)
                     retry_after_sec = float(simulation_progress_response.headers.get("Retry-After", 0))

@@ -33,7 +33,7 @@ def main(event, environment):
             for field2 in datafields:
                 alpha_expression = f'group_rank(({field1})/{field2}, {group})'
                 messages.append(alpha_expression)
-                if len(messages) == 50: # batch delivery
+                if len(messages) == 20: # batch delivery
                     _ = publish_sqs(QUEUE, {'messages': messages, **cookies_dict})
                     messages = [] # reset
         end = time()
