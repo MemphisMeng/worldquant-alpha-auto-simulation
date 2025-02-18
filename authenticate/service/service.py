@@ -1,5 +1,5 @@
-import logging, itertools
-from time import time
+import logging
+from time import time, sleep
 from typing import Optional
 import requests
 from service.helper import authenticate, publish_sqs
@@ -10,33 +10,38 @@ def main(event, environment):
     LOGGER.info(event)
     QUEUE = environment['QUEUE']
 
-    cookies = authenticate()
-    searchScope = {'region': 'USA', 'delay': '1', 'universe': 'TOP3000', 'instrumentType': 'EQUITY'}
-    datafields = []
-    for i, dataset in enumerate(['fundamental2', 'fundamental6']):
+    try:
+        cookies = authenticate()
+        LOGGER.info("Authentication is successful!")
+        searchScope = {'region': 'USA', 'delay': '1', 'universe': 'TOP3000', 'instrumentType': 'EQUITY'}
+        datafields = []
+        for i, dataset in enumerate(['fundamental2', 'fundamental6']):
+            LOGGER.info(f"Starting the {i+1}th iteration...")
+            start = time()
+            datafields.extend(
+                get_datafields(cookies=cookies, searchScope=searchScope, dataset_id=dataset))
+            end = time()
+            LOGGER.info(f"The {i+1}th iteration of API calls takes {round(end - start)} seconds.")
+            
+        cookies_dict = {'cookies': requests.utils.dict_from_cookiejar(cookies)}
+        messages = []
         start = time()
-        datafields.extend(
-            get_datafields(cookies=cookies, searchScope=searchScope, dataset_id=dataset))
+        for field1 in datafields:
+            for field2 in datafields:
+                for group in ['subindustry', 'sector', 'industry', 'market']:
+                    alpha_expression = f'group_rank(({field1})/{field2}, {group})'
+                    LOGGER.info(f"Packaging expression {alpha_expression}...")
+                    message = {'expression': alpha_expression}
+                    message = {**message, **cookies_dict}
+                    messages.append(alpha_expression)
+                    if len(messages) == 50: # batch delivery
+                        _ = publish_sqs(QUEUE, messages)
+                        messages = [] # reset
         end = time()
-        LOGGER.debug(f"The {i+1}th iteration of API calls takes {end - start} seconds.")
-        
-    cookies_dict = {'cookies': requests.utils.dict_from_cookiejar(cookies)}
-    messages = []
-    start = time()
-    for field1, field2, group in itertools.product(datafields, datafields, ['subindustry', 'sector', 'industry', 'market']):
-        alpha_expression = f'group_rank(({field1})/{field2}, {group})'
-        message = {'expression': alpha_expression}
-        message = {**message, **cookies_dict}
-        messages.append(alpha_expression)
-    end = time()
-    LOGGER.debug(f"The Cartesian Product takes {end - start} seconds.")
+        LOGGER.info(f"The batch delivery takes {round(end - start)} seconds.")
 
-    # batch delivery
-    for i in range(0, len(messages), 20):
-        start = time()
-        _ = publish_sqs(QUEUE, messages[i:i+20])
-        end = time()
-        LOGGER.debug(f"The {i}th batch delivery takes {end - start} seconds.")
+    except Exception as e:
+        LOGGER.error(e)
 
 
 def get_datafields(
@@ -55,6 +60,7 @@ def get_datafields(
                        f"&instrumentType={instrument_type}" + \
                        f"&region={region}&delay={str(delay)}&universe={universe}&dataset.id={dataset_id}&limit=50" + \
                        "&offset={x}"
+        LOGGER.info("Calling API...")
         count = requests.get(
             url=url_template.format(x=0),
             cookies=cookies).json()['count']
@@ -72,5 +78,7 @@ def get_datafields(
         datafields_list.extend(
             [datafield.get('id') for datafield in datafields.json()['results'] if datafield.get('type') == 'MATRIX']
             )
+        LOGGER.info(f"{len(datafields_list)} datafields are collected")
+        sleep(1)
 
     return datafields_list
