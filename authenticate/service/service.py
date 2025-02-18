@@ -30,12 +30,9 @@ def main(event, environment):
             for field2 in datafields:
                 for group in ['subindustry', 'sector', 'industry', 'market']:
                     alpha_expression = f'group_rank(({field1})/{field2}, {group})'
-                    LOGGER.info(f"Packaging expression {alpha_expression}...")
-                    message = {'expression': alpha_expression}
-                    message = {**message, **cookies_dict}
                     messages.append(alpha_expression)
                     if len(messages) == 50: # batch delivery
-                        _ = publish_sqs(QUEUE, messages)
+                        _ = publish_sqs(QUEUE, {'messages': messages, **cookies_dict})
                         messages = [] # reset
         end = time()
         LOGGER.info(f"The batch delivery takes {round(end - start)} seconds.")
