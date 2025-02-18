@@ -1,5 +1,6 @@
-import logging, ast, requests, time, itertools
+import logging, ast, requests, itertools
 from service.helper import delete_message, receive_message
+from time import time
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +20,9 @@ def main(event, environment):
     messages = receive_message(QUEUE)
     LOGGER.debug(f"Simulation Lambda receives {len(messages)} messages.")
 
+    i = 0
     for message, neutralization in itertools.product(messages, ["SUBINDUSTRY", "INDUSTRY", "SECTOR", "MARKET"]):
+        start = time()
         try:
             message_body = message['Body']
             body = ast.literal_eval(message_body)
@@ -65,3 +68,7 @@ def main(event, environment):
             delete_message(QUEUE, message['ReceiptHandle'])
         except Exception as e:
             LOGGER.error(e)
+        finally:
+            end = time()
+            LOGGER.debug(f"Handling the {i+1}th message consumes {end - start} seconds.")
+            i += 1
