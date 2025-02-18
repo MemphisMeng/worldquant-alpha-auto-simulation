@@ -28,7 +28,7 @@ def authenticate():
         auth=HTTPBasicAuth(username=username, password=password))
     response.raise_for_status()
 
-    if response.status_code == 200:
+    if response.status_code == 201:
         cookies = response.cookies
         return cookies
     else:
