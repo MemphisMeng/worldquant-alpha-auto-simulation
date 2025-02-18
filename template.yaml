@@ -88,6 +88,25 @@ Resources:
   # =========================================================================================
   # AWS LAMBDA FUNCTIONS
   # ========================================================================================= 
+  StartFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: WorldQuant-Brain-Starter-Function
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.9
+      CodeUri: starter/
+      MemorySize: 128
+      Timeout: 900
+      Role: !GetAtt IamRole.Arn
+      Environment:
+        Variables:
+          LOGGING_LEVEL: INFO
+          QUEUE: !Ref GroupQueue
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: 
+          Fn::GetAtt: GroupDeadLetterQueue.Arn
+  
   AuthFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -106,6 +125,12 @@ Resources:
         Type: SQS
         TargetArn: 
           Fn::GetAtt: MessageDeadLetterQueue.Arn
+      Events:
+        Event:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt GroupQueue.Arn
+            BatchSize: 10
 
   SimulateFunction:
     Type: AWS::Serverless::Function
@@ -130,7 +155,7 @@ Resources:
 
 
   # =========================================================================================
-  # AWS LAMBDA FUNCTIONS
+  # AWS QUEUES
   # ========================================================================================= 
   MessageQueue:
     Type: AWS::SQS::Queue
@@ -147,9 +172,70 @@ Resources:
       QueueName: WorldQuant-Brain-Dead-Letter-Queue
       MessageRetentionPeriod: 1209600
 
+  GroupQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: WorldQuant-Brain-Group-Queue
+      VisibilityTimeout: 900
+      RedrivePolicy:
+        deadLetterTargetArn: 
+          Fn::GetAtt: GroupDeadLetterQueue.Arn
+        maxReceiveCount: 10
+  GroupDeadLetterQueue: 
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: WorldQuant-Brain-Group-Dead-Letter-Queue
+      MessageRetentionPeriod: 1209600
+
   # =========================================================================================
   # AWS CLOUDWATCH ALARM
   # =========================================================================================
+  StarterErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref StarterFunction
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 300
+      Statistic: Sum
+      Threshold: 1
+      AlarmActions: 
+        - !GetAtt Topic.TopicArn
+  StarterDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref StarterFunction
+      EvaluationPeriods: 1
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Maximum
+      Threshold: 750000
+      AlarmActions:
+        - !GetAtt Topic.TopicArn
+  StarterThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref StarterFunction
+      EvaluationPeriods: 1
+      MetricName: Throttles
+      Namespace: AWS/Lambda
+      Period: 300
+      Statistic: Sum
+      Threshold: 1
+      AlarmActions:
+        - !GetAtt Topic.TopicArn
+
   AuthErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:

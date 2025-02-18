@@ -1,4 +1,4 @@
-import logging
+import logging, json
 from time import time, sleep
 from typing import Optional
 import requests
@@ -9,6 +9,9 @@ LOGGER = logging.getLogger(__name__)
 def main(event, environment):
     LOGGER.info(event)
     QUEUE = environment['QUEUE']
+
+    record = event.get('Records')[0]
+    group = json.loads(record.get('body')).get('group')
 
     try:
         cookies = authenticate()
@@ -28,12 +31,11 @@ def main(event, environment):
         start = time()
         for field1 in datafields:
             for field2 in datafields:
-                for group in ['subindustry', 'sector', 'industry', 'market']:
-                    alpha_expression = f'group_rank(({field1})/{field2}, {group})'
-                    messages.append(alpha_expression)
-                    if len(messages) == 50: # batch delivery
-                        _ = publish_sqs(QUEUE, {'messages': messages, **cookies_dict})
-                        messages = [] # reset
+                alpha_expression = f'group_rank(({field1})/{field2}, {group})'
+                messages.append(alpha_expression)
+                if len(messages) == 50: # batch delivery
+                    _ = publish_sqs(QUEUE, {'messages': messages, **cookies_dict})
+                    messages = [] # reset
         end = time()
         LOGGER.info(f"The batch delivery takes {round(end - start)} seconds.")
 
