@@ -9,16 +9,6 @@ def delete_message(url,ReceiptHandle):
         ReceiptHandle=ReceiptHandle
     )
 
-# Pull messages from the queue
-def receive_message(url, maxNumberOfMessages=10):
-    sqs_client = boto3.client("sqs")
-    response = sqs_client.receive_message(
-        QueueUrl=url,
-        MaxNumberOfMessages=maxNumberOfMessages,
-        VisibilityTimeout=120    )
-    result=response.get("Messages",[])
-    return result
-
 def authenticate():
     username, password = list(json.loads(get_secret()).items())[0]
 
