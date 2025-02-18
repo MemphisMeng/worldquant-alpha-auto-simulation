@@ -1,7 +1,7 @@
 import boto3, logging, itertools
 from typing import Optional
 import requests
-from helper import authenticate, publish_sqs
+from service.helper import authenticate, publish_sqs
 
 LOGGER = logging.getLogger(__name__)
 

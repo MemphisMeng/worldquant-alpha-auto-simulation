@@ -1,5 +1,5 @@
 import logging, ast, requests
-from helper import delete_message, receive_message
+from service.helper import delete_message, receive_message
 
 LOGGER = logging.getLogger(__name__)
 

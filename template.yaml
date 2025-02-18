@@ -63,7 +63,12 @@ Resources:
             Action:
               - cloudwatch:PutMetricAlarm
               - cloudwatch:DeleteAlarms
-            Resource: !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:worldquant*       
+            Resource: !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:worldquant*  
+          - Sid: SecretManagerAccess
+            Effect: Allow
+            Action: 
+              - secretsmanager:GetSecretValue
+            Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:worldquant-*  
       Roles:
         - !Ref IamRole
 
