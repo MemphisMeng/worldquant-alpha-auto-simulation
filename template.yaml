@@ -16,7 +16,7 @@ Resources:
               Service:
                 - lambda.amazonaws.com
                 - logs.amazonaws.com
-                - s3.amazonaws.com
+                - sqs.amazonaws.com
             Action:
               - sts:AssumeRole
       Path: '/'
@@ -28,6 +28,12 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
+          - Sid: ParameterStoreAccess
+            Effect: Allow
+            Action:
+            - ssm:GetParameter*
+            - ssm:GetParametersByPath
+            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:worldquant
           - Sid: LogsAccess
             Effect: Allow
             Action:
@@ -44,6 +50,20 @@ Resources:
               - lambda:InvokeFunction
               - lambda:GetFunctionConfiguration
             Resource: arn:aws:lambda:*:*:*:*:*
+          - Sid: SQSAccess
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:WorldQuant*
+          - Sid: CloudWatchAccess
+            Effect: Allow
+            Action:
+              - cloudwatch:PutMetricAlarm
+              - cloudwatch:DeleteAlarms
+            Resource: !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:worldquant*       
       Roles:
         - !Ref IamRole
 
