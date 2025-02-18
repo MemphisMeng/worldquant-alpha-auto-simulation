@@ -45,7 +45,7 @@ def main(event, environment):
 
                 simulation_data = {
                     **type_dict,
-                    **settings_dict,
+                    "settings": settings_dict,
                     **regex_dict
                 }
 
