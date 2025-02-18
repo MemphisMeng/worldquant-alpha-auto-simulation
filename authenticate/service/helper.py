@@ -45,7 +45,7 @@ def publish_sqs(queue_url,message):
     r = sqs.send_message(
         QueueUrl=queue_url,
         MessageBody=(
-            str(message)
+            json.dumps(message)
         ),
         #DelaySeconds = delay_seconds               
     )
