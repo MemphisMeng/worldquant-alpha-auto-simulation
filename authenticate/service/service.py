@@ -1,4 +1,5 @@
-import logging, itertools, time
+import logging, itertools
+from time import time
 from typing import Optional
 import requests
 from service.helper import authenticate, publish_sqs
