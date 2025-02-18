@@ -1,4 +1,5 @@
 import logging, json, requests
+from requests import HTTPError
 from service.helper import delete_message
 from time import time
 
@@ -49,6 +50,11 @@ def main(event, environment):
                     **regex_dict
                 }
 
+                LOGGER.info(f"""
+                    alpha expression: {alpha_expression},
+                    neutralization: {neutralization},
+                    cookie: {cookies.values()[0]}
+                """)
                 simulation_response = requests.post(
                     url='https://api.worldquantbrain.com/simulations',
                     json=simulation_data,
@@ -65,6 +71,7 @@ def main(event, environment):
 
             except Exception as e:
                 LOGGER.error(e)
+                raise e
             finally:
                 end = time()
                 LOGGER.info(f"Handling the {i+1}th payload consumes {round(end - start, 2)} seconds.")
